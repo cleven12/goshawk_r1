@@ -16,3 +16,6 @@ node_modules/
 *.pt
 *.bin
 *.gguf
+
+*.so
+*.gshk

@@ -99,6 +99,13 @@ class GoshawkForCausalLM(nn.Module):
         # Tie weights between embedding and output projection
         self.lm_head.weight = self.model.embed_tokens.weight
 
+        # Optional DeepSeek-style Multi-Token Prediction heads
+        self.mtp = None
+        if config.mtp_depth > 0:
+            from .mtp import MultiTokenPredictor
+
+            self.mtp = MultiTokenPredictor(config)
+
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -122,3 +129,34 @@ class GoshawkForCausalLM(nn.Module):
             )
 
         return logits, loss, new_caches
+
+    def forward_with_mtp(
+        self,
+        input_ids: torch.Tensor,
+        labels: torch.Tensor,
+        mtp_loss_weight: float = 0.3,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Forward pass returning (logits, total_loss, mtp_loss)."""
+        hidden_states, _, _ = self.model(input_ids)
+        logits = self.lm_head(hidden_states)
+
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+        main_loss = F.cross_entropy(
+            shift_logits.view(-1, self.config.vocab_size),
+            shift_labels.view(-1),
+            ignore_index=-100,
+        )
+
+        mtp_loss = torch.tensor(0.0, device=input_ids.device)
+        if self.mtp is not None:
+            mtp_loss, _ = self.mtp.forward_train(
+                backbone_hidden=hidden_states,
+                input_ids=input_ids,
+                embed_tokens=self.model.embed_tokens,
+                lm_head=self.lm_head,
+                labels=labels,
+                mtp_loss_weight=mtp_loss_weight,
+            )
+
+        return logits, main_loss + mtp_loss, mtp_loss
