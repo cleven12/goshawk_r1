@@ -6,6 +6,7 @@ from goshawk.config import GoshawkConfig
 from goshawk.model.transformer import GoshawkForCausalLM
 from goshawk.train.grpo import (
     GRPOTrainer,
+    GRPOTrainingConfig,
     reward_forensic_math,
     reward_format,
     reward_legal_statute,
@@ -104,3 +105,34 @@ def test_grpo_loss_computation():
     assert isinstance(loss, torch.Tensor)
     assert "policy_loss" in metrics
     assert "mean_ratio" in metrics
+
+
+def test_grpo_train_step_end_to_end():
+    config = GoshawkConfig(
+        vocab_size=512,
+        d_model=32,
+        n_layers=1,
+        n_heads=2,
+        v_head_dim=16,
+        max_seq_len=128,
+        q_lora_rank=16,
+        kv_lora_rank=8,
+        qk_rope_head_dim=8,
+        n_routed_experts=2,
+        n_shared_experts=1,
+        num_experts_per_tok=1,
+        moe_intermediate_dim=32,
+        dense_intermediate_dim=32,
+        mtp_depth=0,
+    )
+    policy = GoshawkForCausalLM(config)
+    ref = GoshawkForCausalLM(config)
+    ref.load_state_dict(policy.state_dict())
+
+    grpo_cfg = GRPOTrainingConfig(group_size=2, max_gen_tokens=6)
+    trainer = GRPOTrainer(policy_model=policy, ref_model=ref, config=grpo_cfg)
+
+    metrics = trainer.train_step("<forensic> Audit TZS 500,000. </forensic>")
+    assert "mean_reward" in metrics
+    assert "total_loss" in metrics
+    assert "kl_divergence" in metrics
