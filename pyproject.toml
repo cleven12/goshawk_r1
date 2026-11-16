@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "goshawk-r1"
+version = "0.1.0"
+description = "Goshawk R1: Ultra-Fast Reasoning Language Model Architecture (DeepSeek MLA + DeepSeekMoE + GRPO) for Edge Security, CCTV Event Surveillance, and Forensic Investigations"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Cleven", email = "clevengodsontech@gmail.com" },
+]
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "ruff>=0.5.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["goshawk"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+testpaths = ["tests"]

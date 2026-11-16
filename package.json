@@ -1,0 +1,10 @@
+{
+  "name": "goshawk-r1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Goshawk R1: Fast Edge Reasoning LLM & Verification Suite in Bun + TypeScript",
+  "scripts": {
+    "test": "bun test",
+    "bench": "bun test tests_ts/benchmark.test.ts"
+  }
+}
