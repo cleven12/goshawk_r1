@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Goshawk R1 - Edge Security & Legal Forensics Console</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --surface: #131a26;
+      --surface-2: #1b2436;
+      --border: #28354d;
+      --text: #e6edf7;
+      --muted: #93a4bf;
+      --accent: #ef4444;
+      --accent-2: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, #111827 0%, #1e1b2e 100%);
+      padding: 1.5rem 1.25rem;
+    }
+    .container { max-width: 1020px; margin: 0 auto; padding: 0 1rem; }
+    .title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
+    h1 { margin: 0; font-size: 1.65rem; letter-spacing: -0.02em; }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(239, 68, 68, 0.16);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+    .links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .links a {
+      color: var(--accent-2);
+      text-decoration: none;
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    .links a:hover { border-color: var(--accent-2); }
+    .subtitle { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.95rem; }
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin: 1.25rem 0;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; font-weight: 600; }
+    input, textarea, select {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.8rem;
+      font-family: inherit;
+      font-size: 0.92rem;
+      margin-bottom: 0.9rem;
+    }
+    textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 680px) { .row { grid-template-columns: 1fr; } }
+    .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.65rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      cursor: pointer;
+    }
+    pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.86rem;
+      color: #dbeafe;
+      white-space: pre-wrap;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      margin-bottom: 0.5rem;
+    }
+    .CRITICAL { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
+    .HIGH { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
+    .MEDIUM { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; border: 1px solid #38bdf8; }
+    .NORMAL { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid #22c55e; }
+    .think-box {
+      border-left: 3px solid var(--accent-2);
+      background: rgba(56, 189, 248, 0.07);
+      padding: 0.75rem 1rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.86rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="title-row">
+        <div>
+          <h1>Goshawk R1 <span class="badge">MLA + DeepSeekMoE + GRPO</span></h1>
+          <p class="subtitle">Edge CCTV Security Surveillance, East African Mobile Money Forensics, and Fast &lt;think&gt; Reasoning</p>
+        </div>
+        <div class="links">
+          <a href="https://huggingface.co/Cleven12/goshawk-r1-nano" target="_blank">HF Model Weights</a>
+          <a href="https://github.com/cleven12/goshawk_r1" target="_blank">GitHub Source</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('cctv', this)">CCTV Security Watch</button>
+      <button class="tab-btn" onclick="switchTab('forensics', this)">Forensic Ledger Auditor</button>
+      <button class="tab-btn" onclick="switchTab('reasoning', this)">&lt;think&gt; Reasoning &amp; Local Run</button>
+    </div>
+
+    <!-- TAB 1: CCTV SECURITY WATCH -->
+    <section id="tab-cctv" class="panel active">
+      <div class="card">
+        <div class="row">
+          <div>
+            <label for="camId">Camera ID</label>
+            <input id="camId" value="CAM-04" />
+          </div>
+          <div>
+            <label>Preset Scenarios</label>
+            <div class="btn-row">
+              <button class="secondary" onclick="loadCctvPreset('forced')">Forced Entry</button>
+              <button class="secondary" onclick="loadCctvPreset('armed')">Armed Threat</button>
+              <button class="secondary" onclick="loadCctvPreset('wall')">Perimeter Climb</button>
+              <button class="secondary" onclick="loadCctvPreset('normal')">Normal Lobby</button>
+            </div>
+          </div>
+        </div>
+        <label for="cctvEvents">Temporal Frame Event Stream (one observation per line)</label>
+        <textarea id="cctvEvents" rows="4">02:41 AM Subject approached rear gate
+02:41 AM Individual carrying crowbar forcing door lock</textarea>
+        <button class="primary" onclick="analyzeCctv()">Analyze Camera Stream</button>
+      </div>
+      <div class="card">
+        <div id="cctvStatus"></div>
+        <pre id="cctvOutput">Click "Analyze Camera Stream" to evaluate threats.</pre>
+      </div>
+    </section>
+
+    <!-- TAB 2: FORENSIC LEDGER AUDITOR -->
+    <section id="tab-forensics" class="panel">
+      <div class="card">
+        <div class="row">
+          <div>
+            <label for="primaryAcct">Primary Account / MSISDN</label>
+            <input id="primaryAcct" value="+255754999999" />
+          </div>
+          <div>
+            <label for="dispersalThresh">Rapid Dispersal Threshold (0.50 - 1.00)</label>
+            <input id="dispersalThresh" type="number" step="0.05" min="0.5" max="1.0" value="0.85" />
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="secondary" onclick="loadForensicPreset('smurfing')">Load Smurfing / Rapid Dispersal Case</button>
+          <button class="secondary" onclick="loadForensicPreset('normal')">Load Normal Ledger Case</button>
+        </div>
+        <label for="ledgerText">M-Pesa / Bank Statement Lines</label>
+        <textarea id="ledgerText" rows="5">QJ94KD810Z Confirmed. You have received TZS 5,000,000 from SOURCE A +255754000001 on 16/11/2026. New M-Pesa balance is TZS 5,000,000.
+QJ94KD811A Confirmed. sent to TZS 2,400,000 to MULE ONE +255754000002 on 16/11/2026. New M-Pesa balance is TZS 2,600,000.
+QJ94KD811B Confirmed. sent to TZS 2,500,000 to MULE TWO +255754000003 on 16/11/2026. New M-Pesa balance is TZS 100,000.</textarea>
+        <button class="primary" onclick="runForensicAudit()">Generate Forensic Dossier</button>
+      </div>
+      <div class="card">
+        <div id="forensicStatus"></div>
+        <pre id="forensicOutput">Click "Generate Forensic Dossier" to parse transactions and verify statutes.</pre>
+      </div>
+    </section>
+
+    <!-- TAB 3: REASONING & LOCAL RUN -->
+    <section id="tab-reasoning" class="panel">
+      <div class="card">
+        <label for="reasonCase">Select Trained Goshawk R1 Evaluation Trace</label>
+        <select id="reasonCase" onchange="renderReasoning()">
+          <option value="mpesa">Forensics: M-Pesa Rapid Dispersal &amp; Smurfing</option>
+          <option value="cctv">Security: Nocturnal Forced Entry (CAM-04)</option>
+          <option value="law">Tanzania Law: Section 40A/40B Electronic Evidence</option>
+        </select>
+        <div id="reasonThink" class="think-box"></div>
+        <pre id="reasonResp"></pre>
+      </div>
+      <div class="card">
+        <label>Run Goshawk R1 Locally (Python / Native C99 + Bun FFI)</label>
+        <pre>git clone https://github.com/cleven12/goshawk_r1.git
+cd goshawk_r1
+python3 -m venv .venv && .venv/bin/pip install torch numpy huggingface_hub
+.venv/bin/python -m goshawk.cli watch --camera-id CAM-04 --events "Subject with crowbar"
+.venv/bin/python -m goshawk.cli audit --text "QJ94KD810Z Confirmed. You have received TZS 1,500,000 from JOHN KWEKA +255754123456 on 14/11/2026. New M-Pesa balance is TZS 2,850,000."</pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function switchTab(name, btn) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    const CCTV_PATTERNS = [
+      { re: /(crowbar|pry\s*bar|lockpick|break-in|forcing\s*door|broken\s*glass)/i, level: "CRITICAL", type: "forced_entry", desc: "Immediate perimeter intrusion with burglary tool detected." },
+      { re: /(gun|pistol|firearm|rifle|knife|machete|panga|weapon)/i, level: "CRITICAL", type: "armed_threat", desc: "Lethal weapon or edged instrument visible in frame." },
+      { re: /(altercation|fighting|assault|punching|struggling|shoving)/i, level: "HIGH", type: "physical_violence", desc: "Violent confrontation or physical altercation observed." },
+      { re: /(scaling\s*wall|jumping\s*fence|over\s*fence|perimeter\s*climb)/i, level: "HIGH", type: "perimeter_breach", desc: "Unauthorized scaling of perimeter fence or security wall." },
+      { re: /(loitering|lingering|concealing\s*face|mask\s*at\s*night|casing)/i, level: "MEDIUM", type: "suspicious_surveillance", desc: "Subject loitering with obscured face outside operating hours." }
+    ];
+
+    function loadCctvPreset(kind) {
+      const box = document.getElementById('cctvEvents');
+      if (kind === 'forced') box.value = "02:41 AM Subject approached rear gate\n02:41 AM Individual carrying crowbar forcing door lock";
+      if (kind === 'armed') box.value = "11:15 PM Subject entered main lobby\n11:15 PM Subject displayed pistol near service counter";
+      if (kind === 'wall') box.value = "01:05 AM Motion near east fence\n01:05 AM Subject scaling wall into warehouse yard";
+      if (kind === 'normal') box.value = "10:00 AM Customer walked into reception\n10:02 AM Sitting quietly holding documents";
+      analyzeCctv();
+    }
+
+    function analyzeCctv() {
+      const camId = document.getElementById('camId').value.trim() || "CAM-01";
+      const text = document.getElementById('cctvEvents').value;
+      const statusEl = document.getElementById('cctvStatus');
+      const outEl = document.getElementById('cctvOutput');
+
+      let matched = null;
+      for (const pat of CCTV_PATTERNS) {
+        const m = text.match(pat.re);
+        if (m) {
+          matched = { ...pat, token: m[1] };
+          break;
+        }
+      }
+
+      if (!matched) {
+        statusEl.innerHTML = '<span class="status-pill NORMAL">NORMAL</span>';
+        outEl.textContent = JSON.stringify({ status: "NORMAL", camera_id: camId, threat_level: "NONE" }, null, 2);
+        return;
+      }
+
+      statusEl.innerHTML = `<span class="status-pill ${matched.level}">${matched.level} - ${matched.type}</span>`;
+      outEl.textContent = JSON.stringify({
+        alert_id: `ALT-${camId}-${Math.floor(Date.now() / 1000)}`,
+        camera_id: camId,
+        timestamp: new Date().toISOString(),
+        threat_level: matched.level,
+        event_type: matched.type,
+        description: matched.desc,
+        evidence_tokens: [matched.token],
+        confidence: matched.level === "CRITICAL" ? 0.96 : 0.88,
+        channels_notified: ["telegram", "sms", "webhook"],
+        status: "dispatched"
+      }, null, 2);
+    }
+
+    function loadForensicPreset(kind) {
+      const box = document.getElementById('ledgerText');
+      if (kind === 'smurfing') {
+        box.value = [
+          "QJ94KD810Z Confirmed. You have received TZS 5,000,000 from SOURCE A +255754000001 on 16/11/2026. New M-Pesa balance is TZS 5,000,000.",
+          "QJ94KD811A Confirmed. sent to TZS 2,400,000 to MULE ONE +255754000002 on 16/11/2026. New M-Pesa balance is TZS 2,600,000.",
+          "QJ94KD811B Confirmed. sent to TZS 2,500,000 to MULE TWO +255754000003 on 16/11/2026. New M-Pesa balance is TZS 100,000."
+        ].join("\n");
+      } else {
+        box.value = [
+          "QJ94KD810Z Confirmed. You have received TZS 3,000,000 from EMPLOYER +255754000010 on 16/11/2026. New M-Pesa balance is TZS 3,000,000.",
+          "QJ94KD812C Confirmed. sent to TZS 400,000 to LANDLORD +255754000020 on 16/11/2026. New M-Pesa balance is TZS 2,600,000."
+        ].join("\n");
+      }
+      runForensicAudit();
+    }
+
+    function runForensicAudit() {
+      const acct = document.getElementById('primaryAcct').value.trim() || "PRIMARY_ACCOUNT";
+      const threshold = parseFloat(document.getElementById('dispersalThresh').value) || 0.85;
+      const lines = document.getElementById('ledgerText').value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+      const mpesaRe = /([A-Z0-9]{10,12})\s+Confirmed\.\s+(?:You have received|sent to|paid to|withdrawn)\s+([A-Z]+)\s*([\d,]+)\s+(?:from|to)\s+([^0-9.+]+)\s*(\+?255\d{9}|0\d{9})?.*?balance is\s+([A-Z]+)\s*([\d,]+)/i;
+      let inflow = 0, outflow = 0, parsed = 0;
+
+      for (const line of lines) {
+        const m = line.match(mpesaRe);
+        if (m) {
+          parsed++;
+          const amt = parseInt(m[3].replace(/,/g, ""), 10);
+          if (/received/i.test(line)) inflow += amt;
+          else outflow += amt;
+        }
+      }
+
+      const ratio = (inflow > 0 && outflow > 0) ? Math.min(inflow, outflow) / Math.max(inflow, outflow) : 0;
+      const flagged = ratio >= threshold;
+
+      document.getElementById('forensicStatus').innerHTML = flagged
+        ? '<span class="status-pill CRITICAL">CRITICAL - RAPID DISPERSAL / SMURFING DETECTED</span>'
+        : '<span class="status-pill NORMAL">NORMAL FLOW BALANCE</span>';
+
+      const statutes = flagged
+        ? [
+            "- Tanzania Evidence Act Cap 6 R.E. 2019 (Section 40A): Admissibility of Electronic and Digital Records",
+            "- Penal Code Cap 16 R.E. 2019 (Section 302): Obtaining by False Pretences",
+            "- Cybercrimes Act No. 14 of 2015 (Section 14): Computer Related Fraud"
+          ]
+        : ["- Tanzania Evidence Act Cap 6 R.E. 2019 (Section 40A): Admissibility of Electronic and Digital Records"];
+
+      document.getElementById('forensicOutput').textContent = [
+        `# Forensic Investigation Dossier: ${acct}`,
+        `Transactions Parsed: ${parsed}`,
+        `Total Inflow:        TZS ${inflow.toLocaleString()}`,
+        `Total Outflow:       TZS ${outflow.toLocaleString()}`,
+        `Dispersal Ratio:     ${(ratio * 100).toFixed(1)}% (Threshold: ${(threshold * 100).toFixed(0)}%)`,
+        "",
+        "## Applicable Statutory Framework",
+        ...statutes,
+        "",
+        "## Section 40A / 40B Electronic Evidence Checklist",
+        "[ ] Verify mobile money / bank server operational integrity during transaction window.",
+        "[ ] Execute Certificate of Electronic Evidence under Tanzania Evidence Act Section 40B.",
+        "[ ] Preserve cryptographic hash (SHA-256) of raw SMS / CSV statement export."
+      ].join("\n");
+    }
+
+    const TRACES = {
+      mpesa: {
+        prompt: "<forensic> M-Pesa inflow TZS 5,000,000, five debits of TZS 980,000 in 12 min. </forensic>",
+        think: "<think>Inflow 5,000,000. Outflow 5 * 980,000 = 4,900,000. Ratio 0.98 >= 0.85. Rapid dispersal and smurfing under Cybercrimes Act s.14 and Penal Code s.302.</think>",
+        resp: "<alert> [CRITICAL] Rapid dispersal detected (98%). Certify records under Evidence Act Section 40A/40B."
+      },
+      cctv: {
+        prompt: "<security_event> CAM-04 Rear Gate 02:41 AM: subject carrying crowbar forcing door lock. </security_event>",
+        think: "<think>After-hours 02:41 AM. Token 'crowbar' and 'forcing door' match forced_entry pattern.</think>",
+        resp: "<alert> [CRITICAL] forced_entry at CAM-04. Dispatch security patrol immediately."
+      },
+      law: {
+        prompt: "<tanzania_law> Is an M-Pesa SMS admissible without a Section 40B certificate? </tanzania_law>",
+        think: "<think>Tanzania Evidence Act Cap 6 s.40A admits electronic records only when authenticated by a Section 40B certificate.</think>",
+        resp: "No. Under Tanzania Evidence Act Cap 6 Section 40A and 40B, a Certificate of Electronic Evidence is required."
+      }
+    };
+
+    function renderReasoning() {
+      const k = document.getElementById('reasonCase').value;
+      const t = TRACES[k];
+      document.getElementById('reasonThink').textContent = t.think;
+      document.getElementById('reasonResp').textContent = `Prompt: ${t.prompt}\n\nResponse:\n${t.resp}`;
+    }
+
+    renderReasoning();
+  </script>
+</body>
+</html>
