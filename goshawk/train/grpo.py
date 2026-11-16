@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 
 from ..model.generation import generate
 from ..model.transformer import GoshawkForCausalLM
@@ -220,20 +221,44 @@ class GRPOTrainer:
         }
         return total_loss, metrics
 
+    def _completion_log_prob(
+        self,
+        model: GoshawkForCausalLM,
+        full_ids: List[int],
+        prompt_len: int,
+        device: torch.device,
+    ) -> torch.Tensor:
+        """Compute mean per-token log-probability of generated completion tokens."""
+        seq = torch.tensor([full_ids], dtype=torch.long, device=device)
+        logits, _, _ = model(seq)
+        shift_logits = logits[:, prompt_len - 1 : -1, :]
+        target_ids = seq[:, prompt_len:]
+        log_probs = F.log_softmax(shift_logits, dim=-1)
+        token_lp = torch.gather(log_probs, dim=-1, index=target_ids.unsqueeze(-1)).squeeze(-1)
+        return token_lp.mean()
+
     def train_step(self, prompt: str) -> Dict[str, float]:
         """
         Execute one GRPO step on a single prompt:
-        1. Sample group of G candidate completions.
-        2. Score completions with reward functions.
+        1. Sample group of G candidate completions and record old/ref log-probs.
+        2. Score completions with deterministic rule-based verifiers.
         3. Standardize advantages across the group.
-        4. Update policy model parameters.
+        4. Update policy model parameters via clipped GRPO + KL objective.
         """
+        dev = next(self.policy_model.parameters()).device
         prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=True)
-        group_completions: List[str] = []
+        prompt_len = len(prompt_ids)
+
+        rollout_ids: List[List[int]] = []
+        old_lps: List[torch.Tensor] = []
+        ref_lps: List[torch.Tensor] = []
         rewards: List[float] = []
 
         # 1. Rollout G completions
         self.policy_model.eval()
+        if self.ref_model is not None:
+            self.ref_model.eval()
+
         with torch.no_grad():
             for _ in range(self.config.group_size):
                 out_ids = generate(
@@ -242,32 +267,49 @@ class GRPOTrainer:
                     max_new_tokens=self.config.max_gen_tokens,
                     temperature=self.config.temperature,
                     top_p=self.config.top_p,
+                    device=dev,
                 )
-                # Decode only new tokens
-                gen_ids = out_ids[len(prompt_ids) :]
+                gen_ids = out_ids[prompt_len:]
                 text = self.tokenizer.decode(gen_ids)
-                group_completions.append(text)
+                rewards.append(compute_combined_reward(prompt, text))
+                rollout_ids.append(out_ids)
 
-                # Compute reward
-                r = compute_combined_reward(prompt, text)
-                rewards.append(r)
+                if len(gen_ids) > 0:
+                    old_lps.append(self._completion_log_prob(self.policy_model, out_ids, prompt_len, dev))
+                    if self.ref_model is not None:
+                        ref_lps.append(self._completion_log_prob(self.ref_model, out_ids, prompt_len, dev))
 
         # 2. Standardize advantages
-        advantages = self.calculate_advantages(rewards)
+        advantages = self.calculate_advantages(rewards).to(dev)
 
-        # 3. Policy update forward pass
+        # 3. Policy update forward pass with real token log-prob gradients
         self.policy_model.train()
         self.optimizer.zero_grad()
 
-        # Dummy loss reduction for single step demo/verification
-        # In full rollout, log-probs per sequence are gathered
-        loss = torch.tensor(0.0, requires_grad=True)
-        loss.backward()
-        self.optimizer.step()
+        policy_lps = [
+            self._completion_log_prob(self.policy_model, seq_ids, prompt_len, dev)
+            for seq_ids in rollout_ids
+            if len(seq_ids) > prompt_len
+        ]
+
+        loss_metrics: Dict[str, float] = {"total_loss": 0.0, "policy_loss": 0.0, "kl_divergence": 0.0}
+        if policy_lps:
+            lp_policy_t = torch.stack(policy_lps)
+            lp_old_t = torch.stack(old_lps)
+            lp_ref_t = torch.stack(ref_lps) if ref_lps else None
+
+            loss, loss_metrics = self.compute_grpo_loss(
+                lp_policy_t, lp_old_t, advantages[: len(policy_lps)], log_probs_ref=lp_ref_t
+            )
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.policy_model.parameters(), 1.0)
+            self.optimizer.step()
 
         return {
             "mean_reward": float(sum(rewards) / len(rewards)),
             "max_reward": float(max(rewards)),
             "min_reward": float(min(rewards)),
-            "advantages": advantages.tolist(),
+            "total_loss": loss_metrics["total_loss"],
+            "policy_loss": loss_metrics["policy_loss"],
+            "kl_divergence": loss_metrics["kl_divergence"],
         }
