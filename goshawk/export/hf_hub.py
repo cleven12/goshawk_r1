@@ -147,6 +147,20 @@ def load_env_file(env_path: str = ".env") -> Dict[str, str]:
     return env_vars
 
 
+def _resolve_hf_token(token: Optional[str], env_path: str) -> str:
+    env_vars = load_env_file(env_path)
+    resolved = (
+        token
+        or os.environ.get("HF_TOKEN")
+        or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+        or env_vars.get("HF_TOKEN")
+        or env_vars.get("HUGGINGFACE_HUB_TOKEN")
+    )
+    if not resolved:
+        raise ValueError("Missing Hugging Face token. Set HF_TOKEN in .env or environment.")
+    return resolved
+
+
 def upload_hf_bundle(
     bundle_dir: str,
     repo_id: Optional[str] = None,
@@ -158,17 +172,9 @@ def upload_hf_bundle(
     from huggingface_hub import HfApi
 
     env_vars = load_env_file(env_path)
-    resolved_token = (
-        token
-        or os.environ.get("HF_TOKEN")
-        or os.environ.get("HUGGINGFACE_HUB_TOKEN")
-        or env_vars.get("HF_TOKEN")
-        or env_vars.get("HUGGINGFACE_HUB_TOKEN")
-    )
+    resolved_token = _resolve_hf_token(token, env_path)
     resolved_repo = repo_id or os.environ.get("HF_REPO_ID") or env_vars.get("HF_REPO_ID")
 
-    if not resolved_token:
-        raise ValueError("Missing Hugging Face token. Set HF_TOKEN in .env or environment.")
     if not resolved_repo:
         raise ValueError("Missing Hugging Face repo ID. Set HF_REPO_ID in .env or pass repo_id.")
 
@@ -185,4 +191,35 @@ def upload_hf_bundle(
         "repo_id": resolved_repo,
         "url": f"https://huggingface.co/{resolved_repo}",
         "bundle_dir": bundle_dir,
+    }
+
+
+def deploy_hf_space(
+    space_dir: str = "space",
+    space_id: str = "Cleven12/goshawk-r1-live",
+    token: Optional[str] = None,
+    env_path: str = ".env",
+    private: bool = False,
+) -> Dict[str, Any]:
+    """Create and deploy a live Gradio Hugging Face Space for Goshawk R1."""
+    from huggingface_hub import HfApi
+
+    resolved_token = _resolve_hf_token(token, env_path)
+    api = HfApi(token=resolved_token)
+    api.create_repo(
+        repo_id=space_id,
+        repo_type="space",
+        space_sdk="gradio",
+        exist_ok=True,
+        private=private,
+    )
+    api.upload_folder(
+        folder_path=space_dir,
+        repo_id=space_id,
+        repo_type="space",
+        commit_message="Deploy Goshawk R1 live Gradio Space",
+    )
+    return {
+        "space_id": space_id,
+        "url": f"https://huggingface.co/spaces/{space_id}",
     }
