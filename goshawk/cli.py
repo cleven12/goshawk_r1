@@ -131,7 +131,7 @@ def cmd_export(args: argparse.Namespace) -> None:
     """Quantize and export Goshawk R1 to .gshk binary or Hugging Face bundle."""
     from .config import GoshawkConfig
     from .export.gguf import GoshawkBinaryExporter
-    from .export.hf_hub import export_hf_bundle
+    from .export.hf_hub import export_hf_bundle, upload_hf_bundle
     from .export.quantize import quantize_model
     from .model.transformer import GoshawkForCausalLM
 
@@ -145,6 +145,13 @@ def cmd_export(args: argparse.Namespace) -> None:
     if args.hf_dir:
         res = export_hf_bundle(model, config, args.hf_dir, model_name=args.hf_repo)
         print(f"Exported Hugging Face bundle to {res['output_dir']} ({len(res['files'])} files)")
+        if getattr(args, "hf_push", False):
+            up = upload_hf_bundle(
+                bundle_dir=args.hf_dir,
+                repo_id=args.hf_repo if args.hf_repo else None,
+                env_path=getattr(args, "env_file", ".env"),
+            )
+            print(f"Uploaded to Hugging Face Hub: {up['url']}")
     else:
         res = GoshawkBinaryExporter.export(model, config, args.output)
         print(f"Exported {res['tensors_exported']} tensors to {res['output_path']}")
@@ -194,7 +201,9 @@ def main() -> None:
     export_parser.add_argument("--bits", type=int, default=4, choices=[0, 4, 8], help="0 for FP32, 4 or 8 for quantized")
     export_parser.add_argument("--output", type=str, default="goshawk.gshk", help="Output .gshk binary path")
     export_parser.add_argument("--hf-dir", type=str, default="", help="Export full Hugging Face bundle directory")
-    export_parser.add_argument("--hf-repo", type=str, default="cleven12/goshawk-r1-nano")
+    export_parser.add_argument("--hf-repo", type=str, default="", help="Hugging Face repo ID (overrides HF_REPO_ID in .env)")
+    export_parser.add_argument("--hf-push", action="store_true", help="Upload exported Hugging Face bundle using .env HF_TOKEN")
+    export_parser.add_argument("--env-file", type=str, default=".env", help="Path to .env file with HF_TOKEN")
     export_parser.set_defaults(func=cmd_export)
 
     args = parser.parse_args()
