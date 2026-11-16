@@ -127,3 +127,62 @@ def export_hf_bundle(
         "files": sorted(os.listdir(output_dir)),
         "model_name": model_name,
     }
+
+
+def load_env_file(env_path: str = ".env") -> Dict[str, str]:
+    """Parse key=value pairs from a local .env file without extra dependencies."""
+    env_vars: Dict[str, str] = {}
+    if not os.path.exists(env_path):
+        return env_vars
+    with open(env_path, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key:
+                env_vars[key] = val
+    return env_vars
+
+
+def upload_hf_bundle(
+    bundle_dir: str,
+    repo_id: Optional[str] = None,
+    token: Optional[str] = None,
+    env_path: str = ".env",
+    private: bool = False,
+) -> Dict[str, Any]:
+    """Create (if needed) and upload an exported Goshawk R1 bundle to Hugging Face Hub."""
+    from huggingface_hub import HfApi
+
+    env_vars = load_env_file(env_path)
+    resolved_token = (
+        token
+        or os.environ.get("HF_TOKEN")
+        or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+        or env_vars.get("HF_TOKEN")
+        or env_vars.get("HUGGINGFACE_HUB_TOKEN")
+    )
+    resolved_repo = repo_id or os.environ.get("HF_REPO_ID") or env_vars.get("HF_REPO_ID")
+
+    if not resolved_token:
+        raise ValueError("Missing Hugging Face token. Set HF_TOKEN in .env or environment.")
+    if not resolved_repo:
+        raise ValueError("Missing Hugging Face repo ID. Set HF_REPO_ID in .env or pass repo_id.")
+
+    api = HfApi(token=resolved_token)
+    api.create_repo(repo_id=resolved_repo, repo_type="model", exist_ok=True, private=private)
+    api.upload_folder(
+        folder_path=bundle_dir,
+        repo_id=resolved_repo,
+        repo_type="model",
+        commit_message="Upload Goshawk R1 model, tokenizer, and .gshk edge bundle",
+    )
+
+    return {
+        "repo_id": resolved_repo,
+        "url": f"https://huggingface.co/{resolved_repo}",
+        "bundle_dir": bundle_dir,
+    }
