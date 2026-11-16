@@ -1,6 +1,6 @@
 ---
 title: Goshawk R1 Live
-colorFrom: slate
+colorFrom: gray
 colorTo: red
 sdk: static
 app_file: index.html
