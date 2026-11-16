@@ -58,43 +58,6 @@ $$A_i = \frac{R_i - \text{mean}(R)}{\text{std}(R)}$$
 
 ---
 
-## Project Structure
-
-```text
-goshawk_r1/
-├── goshawk/
-│   ├── config.py              # Model dimension configurations (Nano, Micro, Edge)
-│   ├── model/
-│   │   ├── layers.py          # RMSNorm, SwiGLU, RoPE with YaRN context extension
-│   │   ├── attention.py       # Multi-Head Latent Attention (MLA)
-│   │   ├── moe.py             # DeepSeekMoE with Shared + Routed Experts
-│   │   ├── transformer.py     # Causal decoder backbone
-│   │   └── generation.py      # Fast KV-cached generation engine
-│   ├── tokenizer/
-│   │   ├── bpe.py             # Custom Byte-Pair Encoding tokenizer
-│   │   └── vocab.py           # Core vocabulary & domain tokens (<think>, <alert>, etc.)
-│   ├── vision_security/
-│   │   ├── event_detector.py  # Symbolic CCTV temporal stream parser
-│   │   └── alerting.py        # Multi-channel emergency dispatcher (SMS, WhatsApp, Webhook)
-│   ├── forensics/
-│   │   ├── ledger_parser.py   # M-Pesa, Airtel Money, and bank statement extractor
-│   │   ├── graph_trace.py     # Directed transaction flow & money laundering graph builder
-│   │   └── statute_verifier.py# Statutory compliance verification engine
-│   ├── train/
-│   │   ├── dataset.py         # Memory-mapped dataset loader
-│   │   ├── pretrain.py        # Causal language modeling trainer (FlashAttention/DDP)
-│   │   └── grpo.py            # DeepSeek-R1 GRPO reasoning trainer with rule verifiers
-│   └── export/
-│       ├── quantize.py        # INT8/INT4 quantization
-│       └── gguf.py            # GGUF export for local zero-dependency CPU inference
-├── tests/                     # Comprehensive Python pytest suite
-├── tests_ts/                  # Fast Bun + TypeScript contract & benchmark suite
-├── pyproject.toml
-└── package.json
-```
-
----
-
 ## Quickstart
 
 ### Python Environment
