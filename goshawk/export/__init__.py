@@ -4,6 +4,7 @@ from .gguf import GoshawkBinaryExporter
 from .hf_hub import (
     build_hf_config,
     build_model_card,
+    deploy_hf_space,
     export_hf_bundle,
     load_env_file,
     upload_hf_bundle,
@@ -16,6 +17,7 @@ __all__ = [
     "QuantizedLinear",
     "build_hf_config",
     "build_model_card",
+    "deploy_hf_space",
     "export_hf_bundle",
     "load_env_file",
     "quantize_model",
