@@ -1,7 +1,7 @@
 """Model components for Goshawk R1."""
 
 from .attention import MultiHeadLatentAttention
-from .generation import generate, sample_top_p
+from .generation import LatentPrefixCache, generate, sample_top_p
 from .layers import RMSNorm, RotaryEmbedding, SwiGLU, apply_rotary_pos_emb
 from .moe import DeepSeekMoEBlock
 from .mtp import MTPModule, MultiTokenPredictor
@@ -22,6 +22,7 @@ __all__ = [
     "GoshawkBlock",
     "GoshawkModel",
     "GoshawkForCausalLM",
+    "LatentPrefixCache",
     "generate",
     "sample_top_p",
 ]
