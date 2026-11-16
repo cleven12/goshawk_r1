@@ -100,6 +100,56 @@ def cmd_chat(args: argparse.Namespace) -> None:
             break
 
 
+def cmd_train(args: argparse.Namespace) -> None:
+    """Run SFT or GRPO training on Goshawk R1 reasoning trajectories."""
+    from .config import GoshawkConfig
+    from .model.transformer import GoshawkForCausalLM
+    from .tokenizer.bpe import GoshawkTokenizer
+    from .train.dataset import GoshawkReasoningDataset
+    from .train.pretrain import GoshawkTrainer, PretrainConfig
+
+    config = getattr(GoshawkConfig, args.profile, GoshawkConfig.nano)()
+    tokenizer = GoshawkTokenizer.default()
+    model = GoshawkForCausalLM(config)
+    dataset = GoshawkReasoningDataset(tokenizer=tokenizer, max_seq_len=args.max_seq_len)
+
+    trainer = GoshawkTrainer(
+        model=model,
+        train_dataset=dataset,
+        config=PretrainConfig(batch_size=args.batch_size, max_epochs=args.epochs),
+    )
+    for epoch in range(1, args.epochs + 1):
+        metrics = trainer.train_epoch(epoch)
+        print(f"Epoch {epoch}: train_loss={metrics['train_loss']:.4f}, ppl={metrics['perplexity']:.2f}")
+
+    if args.output:
+        trainer.save_checkpoint(args.output)
+        print(f"Saved checkpoint to {args.output}")
+
+
+def cmd_export(args: argparse.Namespace) -> None:
+    """Quantize and export Goshawk R1 to .gshk binary or Hugging Face bundle."""
+    from .config import GoshawkConfig
+    from .export.gguf import GoshawkBinaryExporter
+    from .export.hf_hub import export_hf_bundle
+    from .export.quantize import quantize_model
+    from .model.transformer import GoshawkForCausalLM
+
+    config = getattr(GoshawkConfig, args.profile, GoshawkConfig.nano)()
+    model = GoshawkForCausalLM(config)
+
+    if args.bits in (4, 8):
+        model, stats = quantize_model(model, bits=args.bits)
+        print(f"Quantized ({args.bits}-bit): compression_ratio={stats['compression_ratio']:.2f}x")
+
+    if args.hf_dir:
+        res = export_hf_bundle(model, config, args.hf_dir, model_name=args.hf_repo)
+        print(f"Exported Hugging Face bundle to {res['output_dir']} ({len(res['files'])} files)")
+    else:
+        res = GoshawkBinaryExporter.export(model, config, args.output)
+        print(f"Exported {res['tensors_exported']} tensors to {res['output_path']}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="goshawk",
@@ -128,6 +178,24 @@ def main() -> None:
     chat_parser.add_argument("--max-tokens", type=int, default=128)
     chat_parser.add_argument("--temperature", type=float, default=0.7)
     chat_parser.set_defaults(func=cmd_chat)
+
+    # Train subcommand
+    train_parser = subparsers.add_parser("train", help="Train Goshawk R1 on reasoning trajectories")
+    train_parser.add_argument("--profile", type=str, default="nano", choices=["nano", "micro", "edge"])
+    train_parser.add_argument("--epochs", type=int, default=1)
+    train_parser.add_argument("--batch-size", type=int, default=2)
+    train_parser.add_argument("--max-seq-len", type=int, default=256)
+    train_parser.add_argument("--output", type=str, default="", help="Optional checkpoint output path")
+    train_parser.set_defaults(func=cmd_train)
+
+    # Export subcommand
+    export_parser = subparsers.add_parser("export", help="Quantize and export Goshawk R1 weights")
+    export_parser.add_argument("--profile", type=str, default="nano", choices=["nano", "micro", "edge"])
+    export_parser.add_argument("--bits", type=int, default=4, choices=[0, 4, 8], help="0 for FP32, 4 or 8 for quantized")
+    export_parser.add_argument("--output", type=str, default="goshawk.gshk", help="Output .gshk binary path")
+    export_parser.add_argument("--hf-dir", type=str, default="", help="Export full Hugging Face bundle directory")
+    export_parser.add_argument("--hf-repo", type=str, default="cleven12/goshawk-r1-nano")
+    export_parser.set_defaults(func=cmd_export)
 
     args = parser.parse_args()
     if not args.command:
