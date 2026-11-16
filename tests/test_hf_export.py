@@ -48,3 +48,16 @@ def test_export_hf_bundle():
             hf_cfg = json.load(f)
         assert hf_cfg["model_type"] == "goshawk_r1"
         assert hf_cfg["kv_lora_rank"] == 8
+
+
+def test_load_env_file():
+    from goshawk.export.hf_hub import load_env_file
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env_path = os.path.join(tmpdir, ".env")
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.write('# comment\nHF_TOKEN="hf_test_123"\nHF_REPO_ID=cleven12/goshawk-r1-nano\n')
+
+        parsed = load_env_file(env_path)
+        assert parsed["HF_TOKEN"] == "hf_test_123"
+        assert parsed["HF_REPO_ID"] == "cleven12/goshawk-r1-nano"
