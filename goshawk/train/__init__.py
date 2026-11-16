@@ -1,5 +1,6 @@
 """Training and GRPO reinforcement learning modules for Goshawk R1."""
 
+from .corpus import TRAINING_CORPUS
 from .dataset import GoshawkReasoningDataset, ReasoningSample, collate_reasoning_batch
 from .grpo import (
     GRPOTrainer,
@@ -10,9 +11,11 @@ from .grpo import (
     reward_legal_statute,
     reward_security_threat,
 )
+from .pipeline import build_edge_trained_config, run_training_pipeline
 from .pretrain import GoshawkTrainer, PretrainConfig
 
 __all__ = [
+    "TRAINING_CORPUS",
     "GoshawkReasoningDataset",
     "ReasoningSample",
     "collate_reasoning_batch",
@@ -25,4 +28,6 @@ __all__ = [
     "reward_security_threat",
     "GoshawkTrainer",
     "PretrainConfig",
+    "build_edge_trained_config",
+    "run_training_pipeline",
 ]
